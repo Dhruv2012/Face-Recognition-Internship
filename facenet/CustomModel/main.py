@@ -155,19 +155,29 @@ def recognise(image_path, database, model):
     return identity
 
 
+
+def fix(FRmodel):
+    for layer in FRmodel.layers:
+        layer.trainable = True
+        print("layer" + str(layer) + " " +  str(layer.trainable))
+
+    for layer in FRmodel.layers[:-3]:
+        layer.trainable = False
+        print("layer" + str(layer) + " " +  str(layer.trainable))
+
+
 #Loading and testing on pretrained model
 if (train_model == False):
     if(scratch ==  True) :
         FRmodel = faceRecoModel(input_shape=(3, 96, 96))
+        print("loading pre-trained weights from Tess..................")
         load_weights_from_FaceNet(FRmodel)
         FRmodel.compile(optimizer='adam', loss=triplet_loss, metrics=['accuracy'])
 
-    #FRmodel.load_weights('nn4.small2.v1.h5')
-    #FRmodel.load_weights('mytraining.h5',by_name=True)
-
     else:
         FRmodel = faceRecoModel(input_shape=(3, 96, 96))
-
+        print("loading weights of mytraining............................")
+        #fix(FRmodel)
         FRmodel.load_weights('mytraining.h5',by_name = True)
         FRmodel.compile(optimizer='adam', loss = triplet_loss, metrics=['accuracy'])
 
@@ -176,7 +186,6 @@ if (train_model == False):
     metadata_train, database = load_metadata('D:\Summer Intern 2019\FACENET/testing/train_alignedv1',FRmodel)
     print(metadata_train.shape)
     num_images = metadata_train.shape[0]
-
 
     identity = recognise("D:\Summer Intern 2019\FACENET/testing/test\P17EC001/P17EC001_0043.jpg", database, FRmodel)
     identity = recognise("D:\Summer Intern 2019\FACENET/testing/train_alignedv1\P17EC001/P17EC001_0004.jpg", database, FRmodel)
@@ -208,14 +217,7 @@ else:
     load_weights_from_FaceNet(FRmodel)
     #FRmodel.load_weights('mytraining.h5', by_name=True)
     FRmodel.summary()
-
-    for layer in FRmodel.layers:
-        layer.trainable = True
-        print("layer" + str(layer) + " " +  str(layer.trainable))
-
-    for layer in FRmodel.layers[:-3]:
-        layer.trainable = False
-        print("layer" + str(layer) + " " +  str(layer.trainable))
+    fix(FRmodel)
     FRmodel.summary()
 
     in_a = Input(shape=(3, 96, 96))
@@ -246,7 +248,9 @@ else:
     FRmodel_train = Model([in_a, in_p, in_n], triplet_loss_layer)
     FRmodel_train.summary()
     generator = triplet_generator()
-
+'''
     FRmodel_train.compile(loss= None, optimizer='adam')
     FRmodel_train.fit_generator(generator, epochs=1000, steps_per_epoch=100)
     FRmodel_train.save_weights('mytraining.h5')
+'''
+
