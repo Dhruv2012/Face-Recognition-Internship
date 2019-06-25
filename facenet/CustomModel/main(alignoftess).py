@@ -59,6 +59,17 @@ def triplet_generator():
         yield [a_batch , p_batch, n_batch], None
 
 
+def load_database():
+    database = {}
+    for file in glob.glob("images(face cropped)/*.jpg"):
+        (dirname, filename) = os.path.split(file)
+        identity = os.path.splitext(filename)[0]
+        database[identity] = img_to_encoding(file,FRmodel)
+    for file in glob.glob("images(face cropped)/*.png"):
+        (dirname1, filename1) = os.path.split(file)
+        identity1 = os.path.splitext(filename1)[0]
+        database[identity1] = img_to_encoding(file,FRmodel)
+    return database
 #MANUAL DATABASE
 
 class IdentityMetadata():
