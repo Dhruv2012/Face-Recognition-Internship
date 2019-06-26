@@ -346,6 +346,6 @@ else:
     FRmodel_train.compile(loss= None, optimizer='adam')
     
     FRmodel_train.fit_generator(generator, epochs=30000, steps_per_epoch=50)
-    FRmodel_train.save_weights('training_test.h5')
+    FRmodel_train.save_weights('mytraining.h5')
 
 
