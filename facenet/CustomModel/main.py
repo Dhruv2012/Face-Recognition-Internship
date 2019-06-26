@@ -35,8 +35,8 @@ from keras.utils import plot_model
 import pandas as pd
 import os.path
 
-train_model = False  # For loading pre trained model or train it from scratch
-scratch = False
+train_model =  False # For loading pre trained model or train it from scratch
+scratch = True
 
 
 def triplet_loss(y_true,y_pred,alpha =0.3):
@@ -57,6 +57,96 @@ def triplet_generator():
         p_batch = np.random.rand(4, 3,  96, 96)
         n_batch = np.random.rand(4, 3, 96, 96)
         yield [a_batch , p_batch, n_batch], None
+
+
+def mytripletgenerator(path, batch):
+    while True:
+        images_a = np.zeros((batch, 3, 96, 96), dtype=np.float16)
+        images_p = np.zeros((batch, 3,  96, 96),dtype=np.float16)
+        images_n = np.zeros((batch, 3, 96, 96),dtype=np.float16)
+        j=0
+        def nextFile(filename,directory):
+            fileList = os.listdir(directory)
+            nextIndex = fileList.index(filename) + 1
+            if nextIndex == 0 or nextIndex == len(fileList):
+                return None
+            return fileList[nextIndex]
+
+        def load_image(image_path):
+            img1 = cv2.imread(image_path, 1)
+            img1 = cv2.resize(img1, (96, 96))
+            img = img1[...,::-1]
+            img = np.around(np.transpose(img, (2,0,1))/255.0, decimals=3)
+            img_array = np.array([img])
+            return img_array
+
+        img_ptr =0
+        for dir, subdir, files in os.walk(path):
+            breakBool = False
+        
+            for file in files:
+            #print(file)
+                try:
+                    next_file = nextFile(file,dir)
+                    file_path = (dir + "/" + file)
+                    nextfile_path = (dir + "/" + next_file)
+                    #print(next_file)
+                except:
+                    continue
+                    # a_batch
+                #print(dir)
+            
+            
+                # a_batch        
+                img_a = load_image(file_path)
+                images_a[img_ptr] = img_a
+                del img_a                        
+                #p_batch
+                img_p = load_image(nextfile_path)
+                images_p[img_ptr] = img_p
+                del img_p
+            
+                present_dir = os.path.split(dir)[1]
+                while(True):    
+                    random_dir = np.random.choice(os.listdir(path))   
+                    if(random_dir == present_dir):
+                        continue
+                    else:
+                        break
+                #print("random_dir is " + str(random_dir)  + " dir is " + str(present_dir))
+                random_dirpath = os.path.join(path,random_dir)
+                #print(random_dirpath)
+                #n_batch
+                random_files=np.random.choice(os.listdir(random_dirpath))
+                random_picked = (random_dirpath + "/" + random_files)
+                #print(random_picked)
+                #print('\n')
+                img_n = load_image(random_picked)                    
+                #print(img_ptr)
+                images_n[img_ptr] = img_n
+                img_ptr += 1
+                del img_n    
+                j=j+1
+                
+                if j>=batch | img_ptr>=(batch-1):
+                    breakBool =True
+                    break
+            if(breakBool):
+                break
+        a_batch = images_a[:img_ptr]
+        p_batch = images_p[:img_ptr]
+        n_batch = images_n[:img_ptr]
+        
+        yield [a_batch , p_batch, n_batch], None
+
+
+
+
+
+
+
+
+
 
 
 #MANUAL DATABASE
@@ -136,7 +226,7 @@ def who_is_it(image_path, database, model):
 def recognise(image_path, database, model):
     encoding = img_to_encoding(image_path, model)
     min_dist = 100
-    print("hey there")
+    #print("hey there")
     for name,value in database.items():
         #print(name)
         for val in value:
@@ -165,6 +255,11 @@ def fix(FRmodel):
         layer.trainable = False
         print("layer" + str(layer) + " " +  str(layer.trainable))
 
+def fix_full(FRmodel):
+    for layer in FRmodel.layers:
+        layer.trainable = True
+        print("layer" + str(layer) + " " +  str(layer.trainable))
+
 
 #Loading and testing on pretrained model
 if (train_model == False):
@@ -177,25 +272,25 @@ if (train_model == False):
     else:
         FRmodel = faceRecoModel(input_shape=(3, 96, 96))
         print("loading weights of mytraining............................")
-        #fix(FRmodel)
+        fix(FRmodel)
         FRmodel.load_weights('mytraining.h5',by_name = True)
         FRmodel.compile(optimizer='adam', loss = triplet_loss, metrics=['accuracy'])
 
     FRmodel.summary()
-    plot_model(FRmodel, to_file='FRmodel.png')
-    metadata_train, database = load_metadata('D:\Summer Intern 2019\FACENET/testing/train_alignedv1',FRmodel)
+    #plot_model(FRmodel, to_file='FRmodel.png')
+    metadata_train, database = load_metadata('/home/ml/FACENET/testing/train_alignedv1',FRmodel)
     print(metadata_train.shape)
     num_images = metadata_train.shape[0]
 
-    identity = recognise("D:\Summer Intern 2019\FACENET/testing/test\P17EC001/P17EC001_0043.jpg", database, FRmodel)
-    identity = recognise("D:\Summer Intern 2019\FACENET/testing/train_alignedv1\P17EC001/P17EC001_0004.jpg", database, FRmodel)
+    #identity = recognise("D:\Summer Intern 2019\FACENET/testing/test\P17EC001/P17EC001_0043.jpg", database, FRmodel)
+    #identity = recognise("D:\Summer Intern 2019\FACENET/testing/train_alignedv1\P17EC001/P17EC001_0004.jpg", database, FRmodel)
 
 ############################################################################################################################
 ##  CONFUSION MATRIX
 
     y_pred = []
     y_actual = []
-    path = 'D:\Summer Intern 2019\FACENET/testing/test_alignedv1'
+    path = '/home/ml/FACENET/testing/test_alignedv1'
 
     for i in os.listdir(path):
         print(i)
@@ -215,7 +310,6 @@ if (train_model == False):
 else:
     FRmodel = faceRecoModel(input_shape=(3, 96, 96))
     load_weights_from_FaceNet(FRmodel)
-    #FRmodel.load_weights('mytraining.h5', by_name=True)
     FRmodel.summary()
     fix(FRmodel)
     FRmodel.summary()
@@ -247,10 +341,11 @@ else:
     triplet_loss_layer = TripletLossLayer(alpha=0.2, name='triplet_loss_layer')([emb_a, emb_p, emb_n])
     FRmodel_train = Model([in_a, in_p, in_n], triplet_loss_layer)
     FRmodel_train.summary()
-    generator = triplet_generator()
-'''
+    generator = mytripletgenerator("/home/ml/FACENET/testing/train_alignedv1",4)
+
     FRmodel_train.compile(loss= None, optimizer='adam')
-    FRmodel_train.fit_generator(generator, epochs=1000, steps_per_epoch=100)
-    FRmodel_train.save_weights('mytraining.h5')
-'''
+    
+    FRmodel_train.fit_generator(generator, epochs=30000, steps_per_epoch=50)
+    FRmodel_train.save_weights('training_test.h5')
+
 
