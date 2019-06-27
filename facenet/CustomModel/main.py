@@ -36,7 +36,7 @@ import pandas as pd
 import os.path
 
 train_model =  False # For loading pre trained model or train it from scratch
-scratch = True
+scratch = False
 
 
 def triplet_loss(y_true,y_pred,alpha =0.3):
@@ -270,15 +270,21 @@ if (train_model == False):
         FRmodel.compile(optimizer='adam', loss=triplet_loss, metrics=['accuracy'])
 
     else:
-        FRmodel = faceRecoModel(input_shape=(3, 96, 96))
-        print("loading weights of mytraining............................")
-        fix(FRmodel)
-        FRmodel.load_weights('mytraining.h5',by_name = True)
+        #FRmodel = faceRecoModel(input_shape=(3, 96, 96))
+        #print("loading weights of mytraining............................")
+        #fix(FRmodel)
+        #FRmodel.load_weights('mytraining.h5')
+        
+        
+
+        FRmodel = load_model("testing_time.h5")
+        FRmodel.load_weights("testing_time.h5")
+
+
         FRmodel.compile(optimizer='adam', loss = triplet_loss, metrics=['accuracy'])
 
     FRmodel.summary()
-    #plot_model(FRmodel, to_file='FRmodel.png')
-    metadata_train, database = load_metadata('/home/ml/FACENET/testing/train_alignedv1',FRmodel)
+    metadata_train, database = load_metadata('D:\Summer Intern 2019/FACENET/testing/train_alignedv1',FRmodel)
     print(metadata_train.shape)
     num_images = metadata_train.shape[0]
 
@@ -290,7 +296,7 @@ if (train_model == False):
 
     y_pred = []
     y_actual = []
-    path = '/home/ml/FACENET/testing/test_alignedv1'
+    path = 'D:\Summer Intern 2019/FACENET/testing/test_alignedv1'
 
     for i in os.listdir(path):
         print(i)
@@ -340,12 +346,24 @@ else:
     triple_loss = triplet_loss(None,y_pred)
     triplet_loss_layer = TripletLossLayer(alpha=0.2, name='triplet_loss_layer')([emb_a, emb_p, emb_n])
     FRmodel_train = Model([in_a, in_p, in_n], triplet_loss_layer)
-    FRmodel_train.summary()
-    generator = mytripletgenerator("/home/ml/FACENET/testing/train_alignedv1",4)
-
-    FRmodel_train.compile(loss= None, optimizer='adam')
     
-    FRmodel_train.fit_generator(generator, epochs=30000, steps_per_epoch=50)
-    FRmodel_train.save_weights('mytraining.h5')
 
 
+    #FRmodel_train.get_layer('FaceRecoModel').load_weights('nn4.small2.v1.h5')
+
+
+    
+    FRmodel_train.summary()
+    generator = mytripletgenerator("D:\Summer Intern 2019/FACENET/testing/train_alignedv1",4)
+    FRmodel_train.compile(loss= None, optimizer='adam')
+
+    
+    #FRmodel_train.fit_generator(generator, epochs=30000, steps_per_epoch=50)
+    #FRmodel_train.save_weights('mytraining.h5')
+
+
+
+
+
+    FRmodel_train.fit_generator(generator, epochs=20, steps_per_epoch=50)
+    FRmodel_train.get_layer('FaceRecoModel').save('testing_time.h5')
