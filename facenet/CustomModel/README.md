@@ -9,3 +9,8 @@ The Directory Structure or file structure is as specified in the google drive it
 Link:
 https://drive.google.com/open?id=11AkGtS_zUU9ORqcWYhhtiJkZUOAPreA4
 
+## NOTE ##
+Another Note regarding code is that some files may contain file path of linux while some of windows as these are performed on 2 difeerent machines So please change the paths accordingly
+But the directory structure remains same in both cases
+
+
