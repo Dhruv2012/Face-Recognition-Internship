@@ -35,7 +35,7 @@ from keras.utils import plot_model
 import pandas as pd
 import os.path
 
-train_model =  False # For loading pre trained model or train it from scratch
+train_model = True # For loading pre trained model or train it from scratch
 scratch = False
 
 
@@ -277,14 +277,14 @@ if (train_model == False):
         
         
 
-        FRmodel = load_model("testing_time.h5")
-        FRmodel.load_weights("testing_time.h5")
+        FRmodel = load_model("mytraining.h5")
+        FRmodel.load_weights("mytraining.h5")
 
 
         FRmodel.compile(optimizer='adam', loss = triplet_loss, metrics=['accuracy'])
 
     FRmodel.summary()
-    metadata_train, database = load_metadata('D:\Summer Intern 2019/FACENET/testing/train_alignedv1',FRmodel)
+    metadata_train, database = load_metadata('/home/ml/FACENET/testing/train_alignedv1',FRmodel)
     print(metadata_train.shape)
     num_images = metadata_train.shape[0]
 
@@ -296,7 +296,7 @@ if (train_model == False):
 
     y_pred = []
     y_actual = []
-    path = 'D:\Summer Intern 2019/FACENET/testing/test_alignedv1'
+    path = '/home/ml/FACENET/testing/test_alignedv1'
 
     for i in os.listdir(path):
         print(i)
@@ -348,13 +348,9 @@ else:
     FRmodel_train = Model([in_a, in_p, in_n], triplet_loss_layer)
     
 
-
-    #FRmodel_train.get_layer('FaceRecoModel').load_weights('nn4.small2.v1.h5')
-
-
     
     FRmodel_train.summary()
-    generator = mytripletgenerator("D:\Summer Intern 2019/FACENET/testing/train_alignedv1",4)
+    generator = mytripletgenerator("/home/ml/FACENET/testing/train_alignedv1",128)
     FRmodel_train.compile(loss= None, optimizer='adam')
 
     
@@ -365,5 +361,5 @@ else:
 
 
 
-    FRmodel_train.fit_generator(generator, epochs=20, steps_per_epoch=50)
-    FRmodel_train.get_layer('FaceRecoModel').save('testing_time.h5')
+    FRmodel_train.fit_generator(generator, epochs=30000, steps_per_epoch=50)
+    FRmodel_train.get_layer('FaceRecoModel').save('mytraining.h5')
