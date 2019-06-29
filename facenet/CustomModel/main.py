@@ -35,20 +35,28 @@ from keras.utils import plot_model
 import pandas as pd
 import os.path
 
-train_model = True # For loading pre trained model or train it from scratch
+
+TRAIN = 'D:/Summer Intern 2019/FACENET/testing/train_alignfix'
+TEST = 'D:/Summer Intern 2019/FACENET/testing/test_alignfix'
+linux = False
+train_model =  True # For loading pre trained model or train it from scratch
 scratch = False
+
+if(linux):
+    TRAIN = '/home/ml/FACENET/testing/train_alignfix'
+    TEST  = '/home/ml/FACENET/testing/test_alignfix' 
+
 
 
 def triplet_loss(y_true,y_pred,alpha =0.3):
     #(None,128) encodings for anchor, positive, negative
     anchor, positive, negative = y_pred[0], y_pred[1], y_pred[2]
-
-
     post_dist = tf.reduce_sum(tf.square(tf.subtract(anchor,positive)),axis = -1)  #sum across last axis
     neg_dist = tf.reduce_sum(tf.square(tf.subtract(anchor, negative)), axis=-1)
     loss = tf.add(alpha,tf.subtract(post_dist,neg_dist))
     total_loss = tf.reduce_sum(tf.maximum(loss,0.0))
     return total_loss
+
 
 def triplet_generator():
 
@@ -250,10 +258,11 @@ def fix(FRmodel):
     for layer in FRmodel.layers:
         layer.trainable = True
         print("layer" + str(layer) + " " +  str(layer.trainable))
-
     for layer in FRmodel.layers[:-3]:
         layer.trainable = False
         print("layer" + str(layer) + " " +  str(layer.trainable))
+
+
 
 def fix_full(FRmodel):
     for layer in FRmodel.layers:
@@ -263,6 +272,7 @@ def fix_full(FRmodel):
 
 #Loading and testing on pretrained model
 if (train_model == False):
+    
     if(scratch ==  True) :
         FRmodel = faceRecoModel(input_shape=(3, 96, 96))
         print("loading pre-trained weights from Tess..................")
@@ -275,8 +285,6 @@ if (train_model == False):
         #fix(FRmodel)
         #FRmodel.load_weights('mytraining.h5')
         
-        
-
         FRmodel = load_model("mytraining.h5")
         FRmodel.load_weights("mytraining.h5")
 
@@ -284,7 +292,7 @@ if (train_model == False):
         FRmodel.compile(optimizer='adam', loss = triplet_loss, metrics=['accuracy'])
 
     FRmodel.summary()
-    metadata_train, database = load_metadata('/home/ml/FACENET/testing/train_alignedv1',FRmodel)
+    metadata_train, database = load_metadata(TRAIN,FRmodel)
     print(metadata_train.shape)
     num_images = metadata_train.shape[0]
 
@@ -296,7 +304,7 @@ if (train_model == False):
 
     y_pred = []
     y_actual = []
-    path = '/home/ml/FACENET/testing/test_alignedv1'
+    path = TEST
 
     for i in os.listdir(path):
         print(i)
@@ -348,17 +356,14 @@ else:
     FRmodel_train = Model([in_a, in_p, in_n], triplet_loss_layer)
     
 
+
+    #FRmodel_train.get_layer('FaceRecoModel').load_weights('nn4.small2.v1.h5')
+
+
     
     FRmodel_train.summary()
-    generator = mytripletgenerator("/home/ml/FACENET/testing/train_alignedv1",128)
+    generator = mytripletgenerator(TRAIN,128)
     FRmodel_train.compile(loss= None, optimizer='adam')
-
-    
-    #FRmodel_train.fit_generator(generator, epochs=30000, steps_per_epoch=50)
-    #FRmodel_train.save_weights('mytraining.h5')
-
-
-
 
 
     FRmodel_train.fit_generator(generator, epochs=30000, steps_per_epoch=50)
