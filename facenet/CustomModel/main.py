@@ -39,12 +39,21 @@ import os.path
 TRAIN = 'D:/Summer Intern 2019/FACENET/testing/train_alignfix'
 TEST = 'D:/Summer Intern 2019/FACENET/testing/test_alignfix'
 linux = False
-train_model =  False # For loading pre trained model or train it from scratch
+train_model = True # For loading pre trained model or train it from scratch
 scratch = False
 
 if(linux):
     TRAIN = '/home/ml/FACENET/testing/train_alignfix'
     TEST  = '/home/ml/FACENET/testing/test_alignfix' 
+
+
+class myCallback(tf.keras.callbacks.Callback):
+  def on_epoch_end(self, epoch, logs={}):
+    if(logs.get('loss')<0.05):
+      print("\nModel Trained...............")
+      self.model.stop_training = True
+
+
 
 
 
@@ -176,7 +185,7 @@ def load_metadata(path,model):
                 database.setdefault(i,[]).append(img_to_encoding(str(IdentityMetadata(path, i, f)),model))
     return np.array(metadata), database
 
-
+'''
 
 class TripletLossLayer(Layer):
     def __init__(self, alpha, **kwargs):
@@ -191,7 +200,7 @@ class TripletLossLayer(Layer):
         loss = self.triplet_loss(inputs)
         self.add_loss(loss)
         return loss
-
+'''
 
 
 def verify(image_path, identity, database, model):
@@ -272,15 +281,9 @@ if (train_model == False):
         FRmodel.compile(optimizer='adam', loss=triplet_loss, metrics=['accuracy'])
 
     else:
-        #FRmodel = faceRecoModel(input_shape=(3, 96, 96))
-        #print("loading weights of mytraining............................")
-        #fix(FRmodel)
-        #FRmodel.load_weights('mytraining.h5')
         
         FRmodel = load_model("mytraining.h5")
         FRmodel.load_weights("mytraining.h5")
-
-
         FRmodel.compile(optimizer='adam', loss = triplet_loss, metrics=['accuracy'])
 
     FRmodel.summary()
@@ -320,6 +323,8 @@ else:
     fix(FRmodel)
     FRmodel.summary()
 
+    callbacks = myCallback()
+    
     in_a = Input(shape=(3, 96, 96))
     in_p = Input(shape=(3, 96, 96))
     in_n = Input(shape=(3, 96, 96))
@@ -337,7 +342,11 @@ else:
             a, p, n = inputs
             p_dist = K.sum(K.square(a - p), axis=-1)
             n_dist = K.sum(K.square(a - n), axis=-1)
-            return K.sum(K.maximum(p_dist - n_dist + self.alpha, 0), axis=0)
+            p_dist = -tf.log(-tf.divide((p_dist),3)+1+1e-8)
+            n_dist = -tf.log(-tf.divide((3-n_dist),3)+1+1e-8) 
+            #return K.sum(K.maximum(p_dist - n_dist + self.alpha, 0), axis=0)
+            return(p_dist+n_dist)
+
 
         def call(self, inputs):
             loss = self.triplet_loss(inputs)
@@ -358,5 +367,5 @@ else:
     FRmodel_train.compile(loss= None, optimizer='adam')
 
 
-    FRmodel_train.fit_generator(generator, epochs=10, steps_per_epoch=50)
+    FRmodel_train.fit_generator(generator, epochs=100, steps_per_epoch=50)
     FRmodel_train.get_layer('FaceRecoModel').save('mytraining.h5')
