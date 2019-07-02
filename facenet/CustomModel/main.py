@@ -39,7 +39,7 @@ import os.path
 TRAIN = 'D:/Summer Intern 2019/FACENET/testing/train_alignfix'
 TEST = 'D:/Summer Intern 2019/FACENET/testing/test_alignfix'
 linux = False
-train_model =  True # For loading pre trained model or train it from scratch
+train_model =  False # For loading pre trained model or train it from scratch
 scratch = False
 
 if(linux):
@@ -57,14 +57,6 @@ def triplet_loss(y_true,y_pred,alpha =0.3):
     total_loss = tf.reduce_sum(tf.maximum(loss,0.0))
     return total_loss
 
-
-def triplet_generator():
-
-    while True:
-        a_batch = np.random.rand(4, 3, 96, 96)
-        p_batch = np.random.rand(4, 3,  96, 96)
-        n_batch = np.random.rand(4, 3, 96, 96)
-        yield [a_batch , p_batch, n_batch], None
 
 
 def mytripletgenerator(path, batch):
@@ -352,12 +344,12 @@ else:
             self.add_loss(loss)
             return loss
     triple_loss = triplet_loss(None,y_pred)
-    triplet_loss_layer = TripletLossLayer(alpha=0.2, name='triplet_loss_layer')([emb_a, emb_p, emb_n])
+    triplet_loss_layer = TripletLossLayer(alpha=0.3, name='triplet_loss_layer')([emb_a, emb_p, emb_n])
     FRmodel_train = Model([in_a, in_p, in_n], triplet_loss_layer)
     
 
 
-    #FRmodel_train.get_layer('FaceRecoModel').load_weights('nn4.small2.v1.h5')
+    #FRmodel_train.get_layer('FaceRecoModel').load_weights('mytraining.h5')
 
 
     
@@ -366,5 +358,5 @@ else:
     FRmodel_train.compile(loss= None, optimizer='adam')
 
 
-    FRmodel_train.fit_generator(generator, epochs=30000, steps_per_epoch=50)
+    FRmodel_train.fit_generator(generator, epochs=10, steps_per_epoch=50)
     FRmodel_train.get_layer('FaceRecoModel').save('mytraining.h5')
