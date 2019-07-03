@@ -92,13 +92,15 @@ def mytripletgenerator(path, batch):
         img_ptr =0
         for dir, subdir, files in os.walk(path):
             breakBool = False
-        
+
+            present_dir = np.random.choice(os.listdir(path)) 
+            
             for file in files:
             #print(file)
                 try:
-                    next_file = nextFile(file,dir)
-                    file_path = (dir + "/" + file)
-                    nextfile_path = (dir + "/" + next_file)
+                    next_file = nextFile(file,os.path.join(path,present_dir))
+                    file_path = (os.path.join(path,present_dir) + "/" + file)
+                    nextfile_path = (os.path.join(path,present_dir) + "/" + next_file)
                     #print(next_file)
                 except:
                     continue
@@ -115,20 +117,21 @@ def mytripletgenerator(path, batch):
                 images_p[img_ptr] = img_p
                 del img_p
             
-                present_dir = os.path.split(dir)[1]
+                #present_dir = os.path.split(dir)[1]
+                
                 while(True):    
                     random_dir = np.random.choice(os.listdir(path))   
                     if(random_dir == present_dir):
                         continue
                     else:
                         break
-                #print("random_dir is " + str(random_dir)  + " dir is " + str(present_dir))
+              
                 random_dirpath = os.path.join(path,random_dir)
-                #print(random_dirpath)
+                
                 #n_batch
                 random_files=np.random.choice(os.listdir(random_dirpath))
                 random_picked = (random_dirpath + "/" + random_files)
-                #print(random_picked)
+                #print("negative is: " + str(random_files) + " anchor is :" + str(file) + "positive is: " + str(next_file))
                 #print('\n')
                 img_n = load_image(random_picked)                    
                 #print(img_ptr)
@@ -337,21 +340,17 @@ else:
         def __init__(self, alpha, **kwargs):
             self.alpha = alpha
             super(TripletLossLayer, self).__init__(**kwargs)
-
         def triplet_loss(self, inputs):
             a, p, n = inputs
             p_dist = K.sum(K.square(a - p), axis=-1)
             n_dist = K.sum(K.square(a - n), axis=-1)
-            p_dist = -tf.log(-tf.divide((p_dist),3)+1+1e-8)
-            n_dist = -tf.log(-tf.divide((3-n_dist),3)+1+1e-8) 
-            #return K.sum(K.maximum(p_dist - n_dist + self.alpha, 0), axis=0)
-            return(p_dist+n_dist)
-
-
+            return K.sum(K.maximum(p_dist - n_dist + self.alpha, 0), axis=0)
         def call(self, inputs):
             loss = self.triplet_loss(inputs)
             self.add_loss(loss)
             return loss
+
+
     triple_loss = triplet_loss(None,y_pred)
     triplet_loss_layer = TripletLossLayer(alpha=0.3, name='triplet_loss_layer')([emb_a, emb_p, emb_n])
     FRmodel_train = Model([in_a, in_p, in_n], triplet_loss_layer)
@@ -367,5 +366,5 @@ else:
     FRmodel_train.compile(loss= None, optimizer='adam')
 
 
-    FRmodel_train.fit_generator(generator, epochs=100, steps_per_epoch=50)
+    FRmodel_train.fit_generator(generator, epochs=10, steps_per_epoch=50)
     FRmodel_train.get_layer('FaceRecoModel').save('mytraining.h5')
