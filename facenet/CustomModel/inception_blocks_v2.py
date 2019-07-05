@@ -3,9 +3,10 @@ import numpy as np
 import os
 from numpy import genfromtxt
 from keras import backend as K
-from keras.layers import Conv2D, ZeroPadding2D, Activation, Input, concatenate
+from keras.layers import Conv2D, ZeroPadding2D, Activation, Input, concatenate, Dropout
 from keras.models import Model
 from keras.layers.normalization import BatchNormalization
+from keras import regularizers
 from keras.layers.pooling import MaxPooling2D, AveragePooling2D
 import fr_utils
 from keras.layers.core import Lambda, Flatten, Dense
@@ -268,7 +269,8 @@ def faceRecoModel(input_shape):
     # Top layer
     X = AveragePooling2D(pool_size=(3, 3), strides=(1, 1), data_format='channels_first')(X)
     X = Flatten()(X)
-    X = Dense(128, name='dense_layer')(X)
+    #X = Dropout(0.25)(X)
+    X = Dense(128, name='dense_layer', kernel_regularizer=regularizers.l2(0.01))(X)
     
     # L2 normalization
     X = Lambda(lambda  x: K.l2_normalize(x,axis=1))(X)
