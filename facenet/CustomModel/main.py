@@ -39,7 +39,7 @@ from keras.optimizers import Adam
 TRAIN = 'D:/Summer Intern 2019/FACENET/testing/train_alignfix'
 TEST = 'D:/Summer Intern 2019/FACENET/testing/test_alignfix'
 linux = True
-train_model = False             
+train_model = True             
 scratch = False
 
 if(linux):
@@ -275,6 +275,36 @@ def fix_full(FRmodel):
         print("layer" + str(layer) + " " +  str(layer.trainable))
 
 
+
+
+################################################################################
+
+def triplet_loss_v2(y_true, y_pred):
+    positive, negative = y_pred[:,0,0], y_pred[:,1,0]
+    margin = K.constant(0.35)
+    loss = K.mean(K.maximum(K.constant(0), positive - negative + margin))
+    return loss
+
+def euclidean_distance(vects):
+    x, y = vects
+    dist = K.sqrt(K.maximum(K.sum(K.square(x - y), axis=1, keepdims=True), K.epsilon()))
+    return dist
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################################
+
 #Loading and testing on pretrained model
 if (train_model == False):
     
@@ -370,14 +400,15 @@ else:
     
 
     
-    FRmodel_train.fit_generator(train_generator, epochs= 30 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50, callbacks=callbacks)
+    FRmodel_train.fit_generator(train_generator, epochs= 2000 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50, callbacks=callbacks)
     
 
     #To save weights close to testing.h5 as they are the best weights(checkpoint) and also as the weights of testing.h5 cannot be copied directly to mytraining.h5 as both models are different i.e FRmodel_train and FRmodel
     FRmodel_train.load_weights('testing.h5')
-    FRmodel_train.fit_generator(train_generator, epochs= 30 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50, callbacks=callbacks)
+    FRmodel_train.fit_generator(train_generator, epochs= 2000 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50, callbacks=callbacks)
     FRmodel_train.get_layer('FaceRecoModel').save('mytraining.h5')
-    
+
+
 
 
 
@@ -392,3 +423,41 @@ else:
     #early stopping and callbacks
     #train accuracy
     #test accuracy
+
+
+    
+
+
+
+### Keras version was 2.1.6
+'''
+    
+    FRmodel = faceRecoModel(input_shape=(3, 96, 96))
+    load_weights_from_FaceNet(FRmodel)
+    #FRmodel.load_weights("mytraining.h5")
+    FRmodel.summary()
+    fix(FRmodel)
+    FRmodel.summary()
+    #callbacks = [ModelCheckpoint('testing.h5', monitor='val_loss', verbose=0, save_best_only=True, save_weights_only=True, mode='min', period=20)]
+
+
+    in_a = Input(shape=(3, 96, 96))
+    in_p = Input(shape=(3, 96, 96))
+    in_n = Input(shape=(3, 96, 96))
+    emb_a = FRmodel(in_a)
+    emb_p = FRmodel(in_p)
+    emb_n = FRmodel(in_n)
+    positive_dist = Lambda(euclidean_distance, name='pos_dist')([emb_a, emb_p])
+    negative_dist = Lambda(euclidean_distance, name='neg_dist')([emb_a, emb_n])
+    stacked_dists = Lambda(lambda vects: K.stack(vects, axis=1), name='stacked_dists')([positive_dist, negative_dist])
+
+    FRmodel_train = Model([in_a, in_p, in_n], stacked_dists, name='triple_siamese')
+    
+    FRmodel_train.summary()
+
+    train_generator = mytripletgenerator(TRAIN,32)
+    test_generator = mytripletgenerator(TEST,32)
+    FRmodel_train.compile(optimizer = 'adam', loss = triplet_loss_v2)
+    FRmodel_train.fit_generator(train_generator, epochs= 30 , steps_per_epoch=2, validation_data = test_generator, validation_steps = 2)
+    FRmodel_train.get_layer('FaceRecoModel').save('mytraining.h5')
+'''
