@@ -3,10 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mlxtend.evaluate import confusion_matrix
 from mlxtend.plotting import plot_confusion_matrix
-#import dlib
 import keras
 import glob
-#from scipy.spatial import distance
 from imutils import face_utils
 from keras.models import load_model
 from fr_utils import *
@@ -34,24 +32,20 @@ K.set_image_data_format('channels_first')
 from keras.utils import plot_model
 import pandas as pd
 import os.path
+from keras.callbacks import EarlyStopping,ModelCheckpoint
+from keras.optimizers import Adam
 
 
 TRAIN = 'D:/Summer Intern 2019/FACENET/testing/train_alignfix'
 TEST = 'D:/Summer Intern 2019/FACENET/testing/test_alignfix'
-linux = False
-train_model = True # For loading pre trained model or train it from scratch
+linux = True
+train_model = False             
 scratch = False
 
 if(linux):
     TRAIN = '/home/ml/FACENET/testing/train_alignfix'
     TEST  = '/home/ml/FACENET/testing/test_alignfix' 
 
-
-class myCallback(tf.keras.callbacks.Callback):
-  def on_epoch_end(self, epoch, logs={}):
-    if(logs.get('loss')<0.05):
-      print("\nModel Trained...............")
-      self.model.stop_training = True
 
 
 
@@ -65,6 +59,10 @@ def triplet_loss(y_true,y_pred,alpha =0.3):
     loss = tf.add(alpha,tf.subtract(post_dist,neg_dist))
     total_loss = tf.reduce_sum(tf.maximum(loss,0.0))
     return total_loss
+
+
+
+
 
 
 
@@ -92,57 +90,59 @@ def mytripletgenerator(path, batch):
         img_ptr =0
         for dir, subdir, files in os.walk(path):
             breakBool = False
-
-            present_dir = np.random.choice(os.listdir(path)) 
             
-            for file in files:
-            #print(file)
-                try:
-                    next_file = nextFile(file,os.path.join(path,present_dir))
-                    file_path = (os.path.join(path,present_dir) + "/" + file)
-                    nextfile_path = (os.path.join(path,present_dir) + "/" + next_file)
-                    #print(next_file)
-                except:
-                    continue
-                    # a_batch
-                #print(dir)
-            
-            
-                # a_batch        
-                img_a = load_image(file_path)
-                images_a[img_ptr] = img_a
-                del img_a                        
-                #p_batch
-                img_p = load_image(nextfile_path)
-                images_p[img_ptr] = img_p
-                del img_p
-            
-                #present_dir = os.path.split(dir)[1]
-                
+            present_dir = np.random.choice(os.listdir(path))
+            file1 = np.random.choice(os.listdir(os.path.join(path,present_dir)))
+            try:
                 while(True):    
-                    random_dir = np.random.choice(os.listdir(path))   
-                    if(random_dir == present_dir):
+                    next_file = np.random.choice(os.listdir(os.path.join(path,present_dir)))
+                    if(file1 == next_file):
                         continue
                     else:
-                        break
+                        break    
+                file_path = (os.path.join(path,present_dir) + "/" + file1)
+                nextfile_path = (os.path.join(path,present_dir) + "/" + next_file)
+            except:
+                continue
+
+
+
+                    # a_batch
+            
+       
+            img_a = load_image(file_path)
+            images_a[img_ptr] = img_a
+            del img_a                        
+
+            img_p = load_image(nextfile_path)
+            images_p[img_ptr] = img_p
+            del img_p
+            
+                
+            while(True):    
+                random_dir = np.random.choice(os.listdir(path))   
+                if(random_dir == present_dir):
+                    continue
+                else:
+                    break
               
-                random_dirpath = os.path.join(path,random_dir)
+            random_dirpath = os.path.join(path,random_dir)
                 
                 #n_batch
-                random_files=np.random.choice(os.listdir(random_dirpath))
-                random_picked = (random_dirpath + "/" + random_files)
-                #print("negative is: " + str(random_files) + " anchor is :" + str(file) + "positive is: " + str(next_file))
+            random_files=np.random.choice(os.listdir(random_dirpath))
+            random_picked = (random_dirpath + "/" + random_files)
+            #print("negative is: " + str(random_files) + " anchor is :" + str(file1) + "positive is: " + str(next_file))
                 #print('\n')
-                img_n = load_image(random_picked)                    
+            img_n = load_image(random_picked)                    
                 #print(img_ptr)
-                images_n[img_ptr] = img_n
-                img_ptr += 1
-                del img_n    
-                j=j+1
+            images_n[img_ptr] = img_n
+            img_ptr += 1
+            del img_n    
+            j=j+1
                 
-                if j>=batch | img_ptr>=(batch-1):
-                    breakBool =True
-                    break
+            if j>=batch | img_ptr>=(batch-1):
+                breakBool =True
+                break
             if(breakBool):
                 break
         a_batch = images_a[:img_ptr]
@@ -150,6 +150,8 @@ def mytripletgenerator(path, batch):
         n_batch = images_n[:img_ptr]
         
         yield [a_batch , p_batch, n_batch], None
+
+    
 
 
 
@@ -189,7 +191,6 @@ def load_metadata(path,model):
     return np.array(metadata), database
 
 '''
-
 class TripletLossLayer(Layer):
     def __init__(self, alpha, **kwargs):
         self.alpha = alpha
@@ -322,12 +323,13 @@ if (train_model == False):
 else:
     FRmodel = faceRecoModel(input_shape=(3, 96, 96))
     load_weights_from_FaceNet(FRmodel)
+    #FRmodel.load_weights("mytraining.h5")
     FRmodel.summary()
     fix(FRmodel)
     FRmodel.summary()
+    callbacks = [ModelCheckpoint('testing.h5', monitor='val_loss', verbose=0, save_best_only=True, save_weights_only=True, mode='min', period=20)]
 
-    callbacks = myCallback()
-    
+
     in_a = Input(shape=(3, 96, 96))
     in_p = Input(shape=(3, 96, 96))
     in_n = Input(shape=(3, 96, 96))
@@ -344,27 +346,49 @@ else:
             a, p, n = inputs
             p_dist = K.sum(K.square(a - p), axis=-1)
             n_dist = K.sum(K.square(a - n), axis=-1)
-            return K.sum(K.maximum(p_dist - n_dist + self.alpha, 0), axis=0)
+            return K.mean(K.maximum(p_dist - n_dist + self.alpha, 0), axis=0)
         def call(self, inputs):
             loss = self.triplet_loss(inputs)
             self.add_loss(loss)
             return loss
 
 
-    triple_loss = triplet_loss(None,y_pred)
+    
     triplet_loss_layer = TripletLossLayer(alpha=0.3, name='triplet_loss_layer')([emb_a, emb_p, emb_n])
     FRmodel_train = Model([in_a, in_p, in_n], triplet_loss_layer)
     
-
 
     #FRmodel_train.get_layer('FaceRecoModel').load_weights('mytraining.h5')
 
 
     
     FRmodel_train.summary()
-    generator = mytripletgenerator(TRAIN,128)
+    train_generator = mytripletgenerator(TRAIN,32)
+    test_generator = mytripletgenerator(TEST,32)
+    Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-8)
     FRmodel_train.compile(loss= None, optimizer='adam')
+    
 
+    
+    FRmodel_train.fit_generator(train_generator, epochs= 30 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50, callbacks=callbacks)
+    
 
-    FRmodel_train.fit_generator(generator, epochs=10, steps_per_epoch=50)
+    #To save weights close to testing.h5 as they are the best weights(checkpoint) and also as the weights of testing.h5 cannot be copied directly to mytraining.h5 as both models are different i.e FRmodel_train and FRmodel
+    FRmodel_train.load_weights('testing.h5')
+    FRmodel_train.fit_generator(train_generator, epochs= 30 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50, callbacks=callbacks)
     FRmodel_train.get_layer('FaceRecoModel').save('mytraining.h5')
+    
+
+
+
+
+
+
+
+
+
+    #600 -> 60
+    #loss = NOne ,augmentation, regularization, Dropout
+    #early stopping and callbacks
+    #train accuracy
+    #test accuracy

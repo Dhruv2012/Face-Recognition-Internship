@@ -3,10 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mlxtend.evaluate import confusion_matrix
 from mlxtend.plotting import plot_confusion_matrix
-#import dlib
 import keras
 import glob
-#from scipy.spatial import distance
 from imutils import face_utils
 from keras.models import load_model
 from fr_utils import *
@@ -34,11 +32,14 @@ K.set_image_data_format('channels_first')
 from keras.utils import plot_model
 import pandas as pd
 import os.path
-from face import *
+
+
+#ENTER SRC AND DESTINATION PATHS MANUALLY ACCORDING TO OS
+#INPUT IS IMAGE AND NOT VIDEO INPUT DUE TO COMPUTATIONALLY INTENSIVE PROGRAM
 
 TRAIN = 'D:/Summer Intern 2019/FACENET/testing/train_alignfix'
 TEST = 'D:/Summer Intern 2019/FACENET/testing/test_alignfix'
-linux = False
+linux = True
 if(linux):
     TRAIN = '/home/ml/FACENET/testing/train_alignfix'
     TEST  = '/home/ml/FACENET/testing/test_alignfix' 
@@ -122,30 +123,35 @@ def realtime():
     num_images = metadata_train.shape[0]
 
     #Setting Camera Configurations
-    cap = cv2.VideoCapture(0)
-    cap.set(3,640) # set Width
-    cap.set(4,480) # set Height
-
-    while(True):
-        ret, frame = cap.read()
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    #cap = cv2.VideoCapture(0)
+    #cap.set(3,640) # set Width
+    #cap.set(4,480) # set Height
+    frame = cv2.imread('/home/ml/FACENET/Face_Recognition_dataset/DATASET (2)/data/IMG_1766.JPG')
+    plt.imshow(frame)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    #while(True):
+        #ret, frame = cap.read()
+        #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
-        faces = cnn_detector(gray, 1)
-        for i in faces:
-            x = i.rect.left()
-            y = i.rect.top()
-            w = i.rect.right() - x
-            h = i.rect.bottom() - y
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-            face_img = align_mod(frame,i.rect)
-            identity = recognise_realtime(face_img, database, FRmodel)
-            cv2.putText(frame, str(identity), (x, h), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), lineType=cv2.LINE_AA) 
+    faces = cnn_detector(gray, 1)
+    for i in faces:
+        x = i.rect.left()
+        y = i.rect.top()
+        w = i.rect.right() - x
+        h = i.rect.bottom() - y
+        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+        face_img = align_mod(frame,i.rect)
+        identity = recognise_realtime(face_img, database, FRmodel)
+        cv2.putText(frame, str(identity), (x, h), cv2.FONT_HERSHEY_SIMPLEX, 5.0, (255, 0, 0), 2,  lineType=cv2.LINE_AA) 
         
-        cv2.imshow('Video', frame)  
-        k = cv2.waitKey(1) & 0xff
-        if k == ord("q"): # press 'ESC' to quit
-            break
-    cap.release()
-    cv2.destroyAllWindows()     
+    #saving the image    
+    cv2.imwrite('/home/ml/FACENET/CustomModel/RESULTS/realtime-results/realtime-test.jpg',frame)
+    cv2.imshow('Video', frame)
+    
+        #k = cv2.waitKey(1) & 0xff
+        #if k == ord("q"): # press 'ESC' to quit
+        #    break
+    #cap.release()
+    #cv2.destroyAllWindows()     
 
 realtime()
