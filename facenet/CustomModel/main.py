@@ -27,13 +27,14 @@ from keras.layers.merge import Concatenate
 from keras.layers.core import Lambda, Flatten, Dense
 from keras.initializers import glorot_uniform
 from keras.engine.topology import Layer
-from keras.layers import Input, Layer
+from keras.layers import Input, Layer, merge, concatenate
 K.set_image_data_format('channels_first')
 from keras.utils import plot_model
 import pandas as pd
 import os.path
 from keras.callbacks import EarlyStopping,ModelCheckpoint
 from keras.optimizers import Adam
+from keras.utils.data_utils import Sequence
 
 
 TRAIN = 'D:/Summer Intern 2019/FACENET/testing/train_alignfix'
@@ -67,25 +68,27 @@ def triplet_loss(y_true,y_pred,alpha =0.3):
 
 
 def mytripletgenerator(path, batch):
+    def nextFile(filename,directory):
+        fileList = os.listdir(directory)
+        nextIndex = fileList.index(filename) + 1
+        if nextIndex == 0 or nextIndex == len(fileList):
+            return None
+        return fileList[nextIndex]
+
+    def load_image(image_path):
+        img1 = cv2.imread(image_path, 1)
+        img1 = cv2.resize(img1, (96, 96))
+        img = img1[...,::-1]
+        img = np.around(np.transpose(img, (2,0,1))/255.0, decimals=3)
+        img_array = np.array([img])
+        return img_array
+
     while True:
         images_a = np.zeros((batch, 3, 96, 96), dtype=np.float16)
         images_p = np.zeros((batch, 3,  96, 96),dtype=np.float16)
-        images_n = np.zeros((batch, 3, 96, 96),dtype=np.float16)
+        images_n = np.zeros((batch, 3, 96, 96), dtype=np.float16)
         j=0
-        def nextFile(filename,directory):
-            fileList = os.listdir(directory)
-            nextIndex = fileList.index(filename) + 1
-            if nextIndex == 0 or nextIndex == len(fileList):
-                return None
-            return fileList[nextIndex]
-
-        def load_image(image_path):
-            img1 = cv2.imread(image_path, 1)
-            img1 = cv2.resize(img1, (96, 96))
-            img = img1[...,::-1]
-            img = np.around(np.transpose(img, (2,0,1))/255.0, decimals=3)
-            img_array = np.array([img])
-            return img_array
+        
 
         img_ptr =0
         for dir, subdir, files in os.walk(path):
@@ -150,11 +153,6 @@ def mytripletgenerator(path, batch):
         n_batch = images_n[:img_ptr]
         
         yield [a_batch , p_batch, n_batch], None
-
-    
-
-
-
 
 
 
@@ -279,30 +277,6 @@ def fix_full(FRmodel):
 
 ################################################################################
 
-def triplet_loss_v2(y_true, y_pred):
-    positive, negative = y_pred[:,0,0], y_pred[:,1,0]
-    margin = K.constant(0.35)
-    loss = K.mean(K.maximum(K.constant(0), positive - negative + margin))
-    return loss
-
-def euclidean_distance(vects):
-    x, y = vects
-    dist = K.sqrt(K.maximum(K.sum(K.square(x - y), axis=1, keepdims=True), K.epsilon()))
-    return dist
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ###############################################################################
 
 #Loading and testing on pretrained model
@@ -383,6 +357,84 @@ else:
             return loss
 
 
+    def triplet_loss_v3(y_pred,alpha =0.3):
+    #(None,128) encodings for anchor, positive, negative
+        anchor, positive, negative = y_pred[0], y_pred[1], y_pred[2]
+        post_dist = K.sum(K.square(anchor - positive), axis = -1)  #sum across last axis
+        neg_dist = K.sum(K.square(anchor -  negative), axis=-1)
+        loss = K.sum(post_dist - neg_dist + alpha)
+        total_loss = K.sum(tf.maximum(loss,0.0))
+        return total_loss   
+    
+    def loss_v3(y_true, y_pred):
+        return K.mean(y_pred) 
+
+
+    #triplet_loss_layer = TripletLossLayer(alpha=0.3, name='triplet_loss_layer')([emb_a, emb_p, emb_n])
+    triplet_loss_layer = merge(y_pred,mode=triplet_loss_v3, output_shape = (1,))
+    FRmodel_train = Model(input = [in_a, in_p, in_n], output = triplet_loss_layer)
+    FRmodel_train = Model([in_a, in_p, in_n], triplet_loss_layer)
+    
+
+    #FRmodel_train.get_layer('FaceRecoModel').load_weights('mytraining.h5')
+
+
+    
+    FRmodel_train.summary()
+    train_generator = mytripletgenerator(TRAIN,32)
+    test_generator = mytripletgenerator(TEST,32)
+    Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-8)
+    FRmodel_train.compile(loss= loss_v3, optimizer='adam')
+    
+
+    
+    FRmodel_train.fit_generator(train_generator, epochs= 2000 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50, callbacks=callbacks)
+    
+
+    #To save weights close to testing.h5 as they are the best weights(checkpoint) and also as the weights of testing.h5 cannot be copied directly to mytraining.h5 as both models are different i.e FRmodel_train and FRmodel
+    FRmodel_train.load_weights('testing.h5')
+    FRmodel_train.fit_generator(train_generator, epochs= 2000 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50, callbacks=callbacks)
+    FRmodel_train.get_layer('FaceRecoModel').save('mytraining.h5')
+
+
+
+
+
+
+
+    '''
+    FRmodel = faceRecoModel(input_shape=(3, 96, 96))
+    load_weights_from_FaceNet(FRmodel)
+    #FRmodel.load_weights("mytraining.h5")
+    FRmodel.summary()
+    fix(FRmodel)
+    FRmodel.summary()
+    callbacks = [ModelCheckpoint('testing.h5', monitor='val_loss', verbose=0, save_best_only=True, save_weights_only=True, mode='min', period=20)]
+
+
+    in_a = Input(shape=(3, 96, 96))
+    in_p = Input(shape=(3, 96, 96))
+    in_n = Input(shape=(3, 96, 96))
+    emb_a = FRmodel(in_a)
+    emb_p = FRmodel(in_p)
+    emb_n = FRmodel(in_n)
+    y_pred = [emb_a, emb_p, emb_n]
+
+    class TripletLossLayer(Layer):
+        def __init__(self, alpha, **kwargs):
+            self.alpha = alpha
+            super(TripletLossLayer, self).__init__(**kwargs)
+        def triplet_loss(self, inputs):
+            a, p, n = inputs
+            p_dist = K.sum(K.square(a - p), axis=-1)
+            n_dist = K.sum(K.square(a - n), axis=-1)
+            return K.mean(K.maximum(p_dist - n_dist + self.alpha, 0), axis=0)
+        def call(self, inputs):
+            loss = self.triplet_loss(inputs)
+            self.add_loss(loss)
+            return loss
+
+
     
     triplet_loss_layer = TripletLossLayer(alpha=0.3, name='triplet_loss_layer')([emb_a, emb_p, emb_n])
     FRmodel_train = Model([in_a, in_p, in_n], triplet_loss_layer)
@@ -408,6 +460,7 @@ else:
     FRmodel_train.fit_generator(train_generator, epochs= 2000 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50, callbacks=callbacks)
     FRmodel_train.get_layer('FaceRecoModel').save('mytraining.h5')
 
+'''
 
 
 
@@ -416,31 +469,26 @@ else:
 
 
 
+'''
 
 
-    #600 -> 60
-    #loss = NOne ,augmentation, regularization, Dropout
-    #early stopping and callbacks
-    #train accuracy
-    #test accuracy
-
-
+    
+    
     
 
 
 
 ### Keras version was 2.1.6
-'''
     
-    FRmodel = faceRecoModel(input_shape=(3, 96, 96))
+
+
+FRmodel = faceRecoModel(input_shape=(3, 96, 96))
     load_weights_from_FaceNet(FRmodel)
     #FRmodel.load_weights("mytraining.h5")
     FRmodel.summary()
     fix(FRmodel)
     FRmodel.summary()
     #callbacks = [ModelCheckpoint('testing.h5', monitor='val_loss', verbose=0, save_best_only=True, save_weights_only=True, mode='min', period=20)]
-
-
     in_a = Input(shape=(3, 96, 96))
     in_p = Input(shape=(3, 96, 96))
     in_n = Input(shape=(3, 96, 96))
@@ -450,14 +498,88 @@ else:
     positive_dist = Lambda(euclidean_distance, name='pos_dist')([emb_a, emb_p])
     negative_dist = Lambda(euclidean_distance, name='neg_dist')([emb_a, emb_n])
     stacked_dists = Lambda(lambda vects: K.stack(vects, axis=1), name='stacked_dists')([positive_dist, negative_dist])
-
     FRmodel_train = Model([in_a, in_p, in_n], stacked_dists, name='triple_siamese')
     
     FRmodel_train.summary()
-
     train_generator = mytripletgenerator(TRAIN,32)
     test_generator = mytripletgenerator(TEST,32)
     FRmodel_train.compile(optimizer = 'adam', loss = triplet_loss_v2)
     FRmodel_train.fit_generator(train_generator, epochs= 30 , steps_per_epoch=2, validation_data = test_generator, validation_steps = 2)
     FRmodel_train.get_layer('FaceRecoModel').save('mytraining.h5')
+    
+
+'''
+
+
+
+
+
+'''
+FRmodel = faceRecoModel(input_shape=(3, 96, 96))
+    load_weights_from_FaceNet(FRmodel)
+    #FRmodel.load_weights("mytraining.h5")
+    FRmodel.summary()
+    fix(FRmodel)
+    FRmodel.summary()
+    callbacks = [ModelCheckpoint('testing.h5', monitor='val_loss', verbose=0, save_best_only=True, save_weights_only=True, mode='min', period=20)]
+
+
+    in_a = Input(shape=(3, 96, 96))
+    in_p = Input(shape=(3, 96, 96))
+    in_n = Input(shape=(3, 96, 96))
+    emb_a = FRmodel(in_a)
+    emb_p = FRmodel(in_p)
+    emb_n = FRmodel(in_n)
+    y_pred = [emb_a, emb_p, emb_n]
+
+    class TripletLossLayer(Layer):
+        def __init__(self, alpha, **kwargs):
+            self.alpha = alpha
+            super(TripletLossLayer, self).__init__(**kwargs)
+        def triplet_loss(self, inputs):
+            a, p, n = inputs
+            p_dist = K.sum(K.square(a - p), axis=-1)
+            n_dist = K.sum(K.square(a - n), axis=-1)
+            return K.mean(K.maximum(p_dist - n_dist + self.alpha, 0), axis=0)
+        def call(self, inputs):
+            loss = self.triplet_loss(inputs)
+            self.add_loss(loss)
+            return loss
+ 
+    def triplet_loss_v3(y_pred,alpha =0.3):
+    #(None,128) encodings for anchor, positive, negative
+        anchor, positive, negative = y_pred[0], y_pred[1], y_pred[2]
+        post_dist = tf.reduce_sum(tf.square(tf.subtract(anchor,positive)),axis = -1)  #sum across last axis
+        neg_dist = tf.reduce_sum(tf.square(tf.subtract(anchor, negative)), axis=-1)
+        loss = tf.add(alpha,tf.subtract(post_dist,neg_dist))
+        total_loss = tf.reduce_mean(tf.maximum(loss,0.0))
+        return total_loss   
+    
+    def loss_v3(y_true, y_pred):
+        return K.mean(y_pred) 
+    
+    #triplet_loss_layer = TripletLossLayer(alpha=0.3, name='triplet_loss_layer')([emb_a, emb_p, emb_n])
+    triplet_loss_layer = merge(y_pred,mode=triplet_loss_v3, output_shape = (1,))
+    FRmodel_train = Model(input = [in_a, in_p, in_n], output = triplet_loss_layer)
+    
+
+    
+
+    
+    FRmodel_train.summary()
+    train_generator = mytripletgenerator(TRAIN,16)
+    test_generator = mytripletgenerator(TEST,16)
+    Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-8)
+    FRmodel_train.compile(loss= loss_v3, optimizer='adam')
+    
+
+
+    FRmodel_train.fit_generator(train_generator, epochs= 20, steps_per_epoch=50, use_multiprocessing=True) 
+
+    #To save weights close to testing.h5 as they are the best weights(checkpoint) and also as the weights of testing.h5 cannot be copied directly to mytraining.h5 as both models are different i.e FRmodel_train and FRmodel
+    #FRmodel_train.load_weights('testing.h5')
+    #FRmodel_train.fit_generator(train_generator, epochs= 20 , steps_per_epoch=50, use_multiprocessing=True)
+    FRmodel_train.get_layer('FaceRecoModel').save('mytraining.h5')
+
+    
 '''
