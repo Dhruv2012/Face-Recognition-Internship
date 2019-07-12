@@ -33,13 +33,13 @@ from keras.utils import plot_model
 import pandas as pd
 import os.path
 from keras.callbacks import EarlyStopping,ModelCheckpoint
-from keras.optimizers import Adam
+from keras.optimizers import Adam,Adadelta,Adagrad
 from keras.utils.data_utils import Sequence
 
 
 TRAIN = 'D:/Summer Intern 2019/FACENET/testing/train_alignfix'
 TEST = 'D:/Summer Intern 2019/FACENET/testing/test_alignfix'
-linux = False
+linux = True
 train_model = True             
 scratch = False
 
@@ -64,6 +64,14 @@ def triplet_loss(y_true,y_pred,alpha =0.3):
 
 
 
+def triplet_loss_v3(y_true,y_pred):
+    from keras import backend as K
+    anchor, positive, negative = y_pred[0], y_pred[1], y_pred[2] 
+    post_dist = K.sum(K.square(anchor - positive), axis =-1)
+    neg_dist = K.sum(K.square(anchor - negative), axis =-1)
+    loss = K.maximum(post_dist - neg_dist + 0.3,0.0)
+    tf.reshape(loss,[1,1])
+    return loss 
 
 
 
@@ -109,11 +117,7 @@ def mytripletgenerator(path, batch):
             except:
                 continue
 
-
-
                     # a_batch
-            
-       
             img_a = load_image(file_path)
             images_a[img_ptr] = img_a
             del img_a                        
@@ -288,14 +292,15 @@ if (train_model == False):
     if(scratch ==  True) :
         FRmodel = faceRecoModel(input_shape=(3, 96, 96))
         print("loading pre-trained weights from Tess..................")
-        load_weights_from_FaceNet(FRmodel)
-        FRmodel.compile(optimizer='adam', loss=triplet_loss, metrics=['accuracy'])
+        #load_weights_from_FaceNet(FRmodel)
+        FRmodel.load_weights('nn4.small2.v1.h5')
+        FRmodel.compile(optimizer='adam', loss=None, metrics=['accuracy'])
 
     else:
         
         FRmodel = load_model("mytraining.h5")
         FRmodel.load_weights("mytraining.h5")
-        FRmodel.compile(optimizer='adam', loss = triplet_loss, metrics=['accuracy'])
+        FRmodel.compile(optimizer='adam', loss = None, metrics=['accuracy'])
 
     FRmodel.summary()
     metadata_train, database = load_metadata(TRAIN,FRmodel)
@@ -344,86 +349,29 @@ else:
     emb_p = FRmodel(in_p)
     emb_n = FRmodel(in_n)
     embeddings = [emb_a, emb_p, emb_n]
-    class TripletLossLayer(Layer):
-        def __init__(self, alpha, **kwargs):
-            self.alpha = alpha
-            super(TripletLossLayer, self).__init__(**kwargs)
-        def triplet_loss(self, inputs):
-            a, p, n = inputs
-            p_dist = K.sum(K.square(a - p), axis=-1)
-            n_dist = K.sum(K.square(a - n), axis=-1)
-            return K.mean(K.maximum(p_dist - n_dist + self.alpha, 0), axis=0)
-        def call(self, inputs):
-            loss = self.triplet_loss(inputs)
-            self.add_loss(loss)
-            return loss
-    
-
-
-
-    def triplet_loss_v3(y_true,y_pred):
-        from keras import backend as K
-        anchor, positive, negative = y_pred[0], y_pred[1], y_pred[2]
-        #print("anchor")
-        #print(anchor)
-        #print(anchor.shape)
-        
-        
-        post_dist = K.sum(K.square(anchor - positive), axis =-1)
-        neg_dist = K.sum(K.square(anchor - negative), axis =-1)
-
-
-        #print("post_dist")
-        #print(post_dist)
-        #print(post_dist.shape)
-        
-        loss = tf.add(0.3,tf.subtract(post_dist,neg_dist))
-        
-        tf.reshape(loss,[1,1])
-
-        #total_loss = tf.reduce_mean(tf.maximum(loss,0.0),axis = 0)
-        #print(total_loss)
-        #print(total_loss.shape)
-        
-        #print("loss")
-        #print(loss)
-        #print(loss.shape)
-        return loss 
-
-    #triplet_loss_layer = TripletLossLayer(alpha=0.3, name='triplet_loss_layer')([emb_a, emb_p, emb_n])
-    #triplet_loss_layer = merge(y_pred,mode=triplet_loss_v3, output_shape = (1,))
     embeddings = Concatenate(axis = -1)([emb_a, emb_p, emb_n])
     FRmodel_train = Model(input = [in_a, in_p, in_n], output = [emb_a, emb_p, emb_n]) 
 
     #FRmodel_train.get_layer('FaceRecoModel').load_weights('mytraining.h5')
-
-    #a = np.random.rand(1,3,96,96)
-    #b = np.random.rand(1,3,96,96)
-    #c = np.random.rand(1,3,96,96)
-    #z = FRmodel_train.predict([a,b,c])
-    #print(z)
-    #print(z.shape)    
-
+    
+    FRmodel_train.get_layer('FaceRecoModel').load_weights('nn4.small2.v1.h5')
     FRmodel_train.summary()
-    train_generator = mytripletgenerator(TRAIN,32)
-    test_generator = mytripletgenerator(TEST,32)
-    Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-8)
-    #FRmodel_train.compile(loss= triplet_loss_v3, optimizer='adam')
-    
-
-    #ans = triplet_loss_v3(None,z)
-    #print("functional call ans is: " + str(ans))
-    FRmodel_train.compile(loss= triplet_loss_v3, optimizer='adam')
-    
-    FRmodel_train.fit_generator(train_generator, epochs= 20 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50)
-    
-
-    #To save weights close to testing.h5 as they are the best weights(checkpoint) and also as the weights of testing.h5 cannot be copied directly to mytraining.h5 as both models are different i.e FRmodel_train and FRmodel
-    #FRmodel_train.load_weights('testing.h5')
-    #FRmodel_train.fit_generator(train_generator, epochs= 20 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50)
+    train_generator = mytripletgenerator(TRAIN,512)
+    test_generator = mytripletgenerator(TEST,512)
+    Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-8, decay = 1e-6)
+    Adadelta(lr=1.0, rho=0.95, epsilon=None, decay=0.0)
+    Adagrad(lr=0.001, epsilon=None, decay=0.98)
+    FRmodel_train.compile(loss= triplet_loss_v3, optimizer='Adagrad')
+    history = FRmodel_train.fit_generator(train_generator, epochs= 20 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50,callbacks = callbacks)
+    FRmodel_train.load_weights('testing.h5')
     FRmodel_train.get_layer('FaceRecoModel').save('mytraining.h5')
-    
-
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.show()
 
 
 
