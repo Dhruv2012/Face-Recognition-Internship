@@ -40,7 +40,7 @@ from keras.utils.data_utils import Sequence
 TRAIN = 'D:/Summer Intern 2019/FACENET/testing/train_alignfix'
 TEST = 'D:/Summer Intern 2019/FACENET/testing/test_alignfix'
 linux = True
-train_model = True             
+train_model = False             
 scratch = False
 
 if(linux):
@@ -159,7 +159,7 @@ def mytripletgenerator(path, batch):
         z1  = np.random.rand(17,)
         z2  = np.random.rand(17,)
         z3  = np.random.rand(17,) 
-        yield [a_batch , p_batch, n_batch], [z1, z2, z3]
+        yield [a_batch , p_batch, n_batch], z1
 
 
 
@@ -194,22 +194,6 @@ def load_metadata(path,model):
                 metadata.append(IdentityMetadata(path, i, f))
                 database.setdefault(i,[]).append(img_to_encoding(str(IdentityMetadata(path, i, f)),model))
     return np.array(metadata), database
-
-'''
-class TripletLossLayer(Layer):
-    def __init__(self, alpha, **kwargs):
-        self.alpha = alpha
-        super(TripletLossLayer, self).__init__(**kwargs)
-    def triplet_loss(self, inputs):
-        a, p, n = inputs
-        p_dist = K.sum(K.square(a - p), axis=-1)
-        n_dist = K.sum(K.square(a - n), axis=-1)
-        return K.sum(K.maximum(p_dist - n_dist + self.alpha, 0), axis=0)
-    def call(self, inputs):
-        loss = self.triplet_loss(inputs)
-        self.add_loss(loss)
-        return loss
-'''
 
 
 def verify(image_path, identity, database, model):
@@ -334,14 +318,12 @@ if (train_model == False):
 
 else:
     FRmodel = faceRecoModel(input_shape=(3, 96, 96))
-    load_weights_from_FaceNet(FRmodel)
-    #FRmodel.load_weights("mytraining.h5")
+    #load_weights_from_FaceNet(FRmodel)
+    FRmodel.load_weights("mytraining.h5")
     FRmodel.summary()
     fix(FRmodel)
     FRmodel.summary()
-    callbacks = [ModelCheckpoint('testing.h5', monitor='val_loss', verbose=0, save_best_only=True, save_weights_only=True, mode='min', period=20)]
-
-
+   
     in_a = Input(shape=(3, 96, 96))
     in_p = Input(shape=(3, 96, 96))
     in_n = Input(shape=(3, 96, 96))
@@ -350,20 +332,38 @@ else:
     emb_n = FRmodel(in_n)
     embeddings = [emb_a, emb_p, emb_n]
     embeddings = Concatenate(axis = -1)([emb_a, emb_p, emb_n])
-    FRmodel_train = Model(input = [in_a, in_p, in_n], output = [emb_a, emb_p, emb_n]) 
+   
 
-    #FRmodel_train.get_layer('FaceRecoModel').load_weights('mytraining.h5')
-    
-    FRmodel_train.get_layer('FaceRecoModel').load_weights('nn4.small2.v1.h5')
+    def triplet_loss_v4(x):
+        anchor, positive, negative = x
+        pos_dist = tf.reduce_sum(tf.square(tf.subtract(anchor, positive)), 1)
+        neg_dist = tf.reduce_sum(tf.square(tf.subtract(anchor, negative)), 1)
+        basic_loss = tf.add(tf.subtract(pos_dist, neg_dist), 0.3)
+        loss = tf.reduce_mean(tf.maximum(basic_loss, 0.0), 0)
+        return loss
+    def loss_v4(y_true, y_pred):
+        return y_pred
+
+
+    loss = merge([emb_a, emb_p, emb_n],
+                 mode=triplet_loss_v4, output_shape=(1,))
+    FRmodel_train = Model(input = [in_a, in_p, in_n], output = loss)
+
+
+    FRmodel_train.get_layer('FaceRecoModel').load_weights('mytraining.h5')
+    #FRmodel_train.get_layer('FaceRecoModel').load_weights('nn4.small2.v1.h5')
     FRmodel_train.summary()
     train_generator = mytripletgenerator(TRAIN,512)
     test_generator = mytripletgenerator(TEST,512)
-    Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-8, decay = 1e-6)
-    Adadelta(lr=1.0, rho=0.95, epsilon=None, decay=0.0)
-    Adagrad(lr=0.001, epsilon=None, decay=0.98)
-    FRmodel_train.compile(loss= triplet_loss_v3, optimizer='Adagrad')
-    history = FRmodel_train.fit_generator(train_generator, epochs= 20 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50,callbacks = callbacks)
-    FRmodel_train.load_weights('testing.h5')
+    Adam(lr=0.005, beta_1=0.9, beta_2=0.999, epsilon=1e-8, decay = 1e-6)
+    
+
+    FRmodel_train.compile(loss= loss_v4, optimizer='Adam')
+    
+
+
+
+    history = FRmodel_train.fit_generator(train_generator, epochs= 1000 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50,callbacks = None)
     FRmodel_train.get_layer('FaceRecoModel').save('mytraining.h5')
     plt.plot(history.history['loss'])
     plt.plot(history.history['val_loss'])
