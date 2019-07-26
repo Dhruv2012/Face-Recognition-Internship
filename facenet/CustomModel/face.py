@@ -77,9 +77,27 @@ test_17 = "/home/ml/FACENET/testing/test/P17EC017"
 
 
 
+d3 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/dataset/Aman"
+d4 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/dataset/Ankit"
+d5 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/dataset/Chirayu"
+d10 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/dataset/Harnish"
+d11 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/dataset/Lokesh"
+d12 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/dataset/Mansi"
+d13 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/dataset/meet"
+d14 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/dataset/Milie"
+d15 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/dataset/Vats"
 
-
-
+'''
+e3 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Aman"
+e4 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Ankit"
+e5 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Chirayu"
+e10 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Harnish"
+e11 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Lokesh"
+e12 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Mansi"
+e13 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/meet"
+e14 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Milie"
+e15 = "/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Vats"
+'''
 
 def create_folder(folder_name):
     if not os.path.exists(folder_name):
@@ -245,7 +263,7 @@ def cropalign_cnn_alignfix(src,dest,upscale):
             face_img = cv2.resize(face_img, (96, 96))
             if len(faces) ==1:
                 path = dest + "/" + (filename)
-            elif len(faces1)>1:
+            elif len(faces)>1:
                 path = dest + "/" + str(j) + (filename)
             cv2.imwrite(path, face_img)
             j= j+ 1
@@ -274,6 +292,15 @@ def cropalign_cnn_alignfix(src,dest,upscale):
                 path1 = dest + "/" + str(j) + (filename1)
             cv2.imwrite(path1, face_img1)
             j = j + 1
+#cropalign_cnn_alignfix(d3,"/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Aman",1)
+#cropalign_cnn_alignfix(d4,"/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Ankit",1)
+#cropalign_cnn_alignfix(d5,"/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Chirayu",1)
+#cropalign_cnn_alignfix(d10,"/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Harnish",1)
+#cropalign_cnn_alignfix(d11,"/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Lokesh",1)
+#cropalign_cnn_alignfix(d12,"/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Mansi",1)
+#cropalign_cnn_alignfix(d13,"/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/meet",1)
+cropalign_cnn_alignfix(d14,"/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Milie",1)
+cropalign_cnn_alignfix(d15,"/home/ml/FACENET/Face_Recognition_dataset/DRISHTI/Cropped/Vats",1)
 '''
 cropalign_cnn_alignfix(test_1,"/home/ml/FACENET/testing/test_alignfix/P17EC001",1)
 cropalign_cnn_alignfix(test_2,"/home/ml/FACENET/testing/test_alignfix/P17EC002",1)

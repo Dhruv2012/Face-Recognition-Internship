@@ -156,9 +156,9 @@ def mytripletgenerator(path, batch):
         a_batch = images_a[:img_ptr]
         p_batch = images_p[:img_ptr]
         n_batch = images_n[:img_ptr]
-        z1  = np.random.rand(17,)
-        z2  = np.random.rand(17,)
-        z3  = np.random.rand(17,) 
+        z1  = np.zeros((17,))
+        z2  = np.zeros((17,))
+        z3  = np.zeros((17,)) 
         yield [a_batch , p_batch, n_batch], z1
 
 
@@ -318,8 +318,8 @@ if (train_model == False):
 
 else:
     FRmodel = faceRecoModel(input_shape=(3, 96, 96))
-    #load_weights_from_FaceNet(FRmodel)
-    FRmodel.load_weights("mytraining.h5")
+    load_weights_from_FaceNet(FRmodel)
+    #FRmodel.load_weights("mytraining.h5")
     FRmodel.summary()
     fix(FRmodel)
     FRmodel.summary()
@@ -350,8 +350,8 @@ else:
     FRmodel_train = Model(input = [in_a, in_p, in_n], output = loss)
 
 
-    FRmodel_train.get_layer('FaceRecoModel').load_weights('mytraining.h5')
-    #FRmodel_train.get_layer('FaceRecoModel').load_weights('nn4.small2.v1.h5')
+    #FRmodel_train.get_layer('FaceRecoModel').load_weights('mytraining.h5')
+    FRmodel_train.get_layer('FaceRecoModel').load_weights('nn4.small2.v1.h5')
     FRmodel_train.summary()
     train_generator = mytripletgenerator(TRAIN,512)
     test_generator = mytripletgenerator(TEST,512)
@@ -363,7 +363,7 @@ else:
 
 
 
-    history = FRmodel_train.fit_generator(train_generator, epochs= 1000 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50,callbacks = None)
+    history = FRmodel_train.fit_generator(train_generator, epochs= 200 ,steps_per_epoch=50, validation_data = test_generator, validation_steps = 50,callbacks = None)
     FRmodel_train.get_layer('FaceRecoModel').save('mytraining.h5')
     plt.plot(history.history['loss'])
     plt.plot(history.history['val_loss'])
