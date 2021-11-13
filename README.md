@@ -6,7 +6,7 @@ Facial Recognition System Using Deep Learning
 
 <p align="justify">
 
-This work was done by me as a part of summer internsip 2019-20 at my University NIT Surat under [Dr. K.P.Upla](https://sites.google.com/site/kpupla/home). I began my journey in Deep Learning through this internship and worked on the FaceNet system proposed by Google.
+This work was done by me as a part of summer internship 2019-20 at my University NIT Surat under [Dr. K.P.Upla](https://sites.google.com/site/kpupla/home). I began my journey in Deep Learning through this internship and worked on the FaceNet system proposed by Google.
 
 </p>
 
